@@ -1,7 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from .forms import ColegioForm, SubirArchivoForm
-from .models import Colegio, Estudiante, Asistencia
+from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView
+from django.urls import reverse_lazy
+from .forms import ColegioForm, SubirArchivoForm, RegistroUsuarioForm, LoginForm
+from .models import Colegio, Estudiante, Asistencia, Usuario
 from django.db import transaction, models
 from django.db.models.functions import TruncMonth
 import pandas as pd
@@ -11,6 +15,7 @@ from datetime import date, timedelta
 # ---------- VISTAS ----------
 
 # Vista para registrar un nuevo colegio
+@login_required
 def crear_colegio(request):
     if request.method == "POST":
         form = ColegioForm(request.POST)
@@ -25,6 +30,7 @@ def crear_colegio(request):
 
 
 # Vista para subir archivos
+@login_required
 @transaction.atomic
 def subir_archivo(request, id_colegio):
     colegio = get_object_or_404(Colegio, pk=id_colegio)
@@ -74,6 +80,7 @@ def subir_archivo(request, id_colegio):
     return render(request, "gestion/subir_archivo.html", {"form": form, "colegio": colegio})
 
 
+@login_required
 def dashboard_colegio(request, id_colegio):
     colegio = get_object_or_404(Colegio, pk=id_colegio)
     estudiantes = Estudiante.objects.filter(colegio=colegio)
@@ -148,3 +155,61 @@ def dashboard_colegio(request, id_colegio):
         }
     }
     return render(request, "gestion/dashboard_colegio.html", context)
+
+
+# ---------- VISTAS DE AUTENTICACIÓN ----------
+
+class CustomLoginView(LoginView):
+    """Vista personalizada para login con formulario personalizado."""
+    form_class = LoginForm
+    template_name = 'auth/login.html'
+    redirect_authenticated_user = True
+    
+    def get_success_url(self):
+        return reverse_lazy('dashboard_principal')
+
+
+def registro_usuario(request):
+    """Vista para registro de nuevos usuarios."""
+    if request.method == 'POST':
+        form = RegistroUsuarioForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f'¡Cuenta creada exitosamente para {user.first_name}! Ya puedes iniciar sesión.')
+            return redirect('login')
+    else:
+        form = RegistroUsuarioForm()
+    
+    return render(request, 'auth/registro.html', {'form': form})
+
+
+def logout_usuario(request):
+    """Vista para cerrar sesión."""
+    logout(request)
+    messages.info(request, 'Has cerrado sesión exitosamente.')
+    return redirect('login')
+
+
+@login_required
+def dashboard_principal(request):
+    """Dashboard principal después del login."""
+    colegios = Colegio.objects.all()
+    
+    # Estadísticas generales
+    total_colegios = colegios.count()
+    total_estudiantes = Estudiante.objects.count()
+    total_usuarios = Usuario.objects.count()
+    
+    # Colegios recientes (últimos 5)
+    colegios_recientes = colegios.order_by('-id_colegio')[:5]
+    
+    context = {
+        'user': request.user,
+        'total_colegios': total_colegios,
+        'total_estudiantes': total_estudiantes,
+        'total_usuarios': total_usuarios,
+        'colegios_recientes': colegios_recientes,
+        'colegios': colegios,
+    }
+    
+    return render(request, 'gestion/dashboard_principal.html', context)

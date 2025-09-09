@@ -1,4 +1,40 @@
 from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+
+class Usuario(AbstractUser):
+    """Modelo de usuario personalizado con campos adicionales."""
+    first_name = models.CharField(max_length=150, verbose_name='Nombres')
+    last_name = models.CharField(max_length=150, verbose_name='Apellidos')
+    email = models.EmailField(unique=True, verbose_name='Correo electrónico')
+    institucion_educativa = models.CharField(max_length=255, verbose_name='Institución educativa')
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    
+    # Hacer que el username sea opcional
+    username = models.CharField(max_length=150, unique=True, blank=True, null=True, verbose_name='Nombre de usuario (opcional)')
+    
+    # Usar email como campo de autenticación principal
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['first_name', 'last_name', 'institucion_educativa']
+    
+    class Meta:
+        verbose_name = "Usuario"
+        verbose_name_plural = "Usuarios"
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.email})"
+    
+    def save(self, *args, **kwargs):
+        # Si no se proporciona username, generar uno basado en el email
+        if not self.username:
+            base_username = self.email.split('@')[0]
+            username = base_username
+            counter = 1
+            while Usuario.objects.filter(username=username).exists():
+                username = f"{base_username}{counter}"
+                counter += 1
+            self.username = username
+        super().save(*args, **kwargs)
 
 
 class Colegio(models.Model):

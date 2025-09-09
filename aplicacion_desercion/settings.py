@@ -81,9 +81,9 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'desercion_db',
         'USER': 'postgres',
-        'PASSWORD': 'postgresql',
+        'PASSWORD': '1234',
         'HOST': 'localhost',
-        'PORT': '5434',
+        'PORT': '5432',
         'OPTIONS': {
             'client_encoding': 'UTF8',
         },
@@ -130,3 +130,9 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Configuración de autenticación
+AUTH_USER_MODEL = 'gestion.Usuario'
+LOGIN_URL = '/auth/login/'
+LOGIN_REDIRECT_URL = '/gestion/dashboard/'
+LOGOUT_REDIRECT_URL = '/auth/login/'
