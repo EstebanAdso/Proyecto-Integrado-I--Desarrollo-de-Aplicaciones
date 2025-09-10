@@ -1,7 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from .forms import ColegioForm, SubirArchivoForm
-from .models import Colegio, Estudiante, Asistencia
+from django.contrib.auth import login, authenticate
+from django.contrib.auth.decorators import login_required
+from .forms import RegistroColegioForm, LoginForm, SubirArchivoForm
+from .models import Colegio, Estudiante, Asistencia, Usuario
 from django.db import transaction, models
 from django.db.models.functions import TruncMonth
 import pandas as pd
@@ -11,23 +13,83 @@ from datetime import date, timedelta
 # ---------- VISTAS ----------
 
 # Vista para registrar un nuevo colegio
-def crear_colegio(request):
+@transaction.atomic
+def registro_colegio(request):
     if request.method == "POST":
-        form = ColegioForm(request.POST)
+        form = RegistroColegioForm(request.POST)
         if form.is_valid():
-            nuevo_colegio = form.save()
-            messages.success(request, "Institución educativa registrada exitosamente.")
-            # Redirigimos a la página para subir archivos de este nuevo colegio
-            return redirect("subir_archivo", id_colegio=nuevo_colegio.id_colegio)
+            # Extraer datos del formulario
+            nombre = form.cleaned_data['nombre']
+            codigo_dane = form.cleaned_data['codigo_dane']
+            email = form.cleaned_data['email']
+            password = form.cleaned_data['password']
+
+            # Validar que el email y el código DANE no estén ya registrados
+            if Usuario.objects.filter(email=email).exists():
+                messages.error(request, 'Ya existe un usuario con este correo electrónico.')
+            elif Colegio.objects.filter(codigo_dane=codigo_dane).exists():
+                messages.error(request, 'Ya existe un colegio con este código DANE.')
+            else:
+                # Crear el usuario. Usamos el email como username también para simplificar.
+                nuevo_usuario = Usuario.objects.create_user(username=email, email=email, password=password)
+                
+                # Crear el colegio y asociarlo con el usuario
+                colegio = form.save(commit=False)
+                colegio.usuario = nuevo_usuario
+                colegio.save()
+
+                                # Autenticar al usuario para asignarle el backend correcto antes de hacer login
+                user_autenticado = authenticate(request, username=email, password=password)
+                if user_autenticado is not None:
+                    login(request, user_autenticado)
+                
+                # Redirigir al dashboard del colegio
+                return redirect('dashboard_colegio', id_colegio=colegio.id_colegio)
     else:
-        form = ColegioForm()
-    return render(request, "gestion/crear_colegio.html", {"form": form})
+        form = RegistroColegioForm()
+    return render(request, "gestion/registro_colegio.html", {"form": form})
+
+
+def login_colegio(request):
+    if request.method == 'POST':
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
+            
+            # Usamos nuestro backend personalizado para autenticar
+            user = authenticate(request, username=username, password=password)
+            
+            if user is not None:
+                login(request, user)
+                # Buscamos el colegio asociado al usuario para la redirección
+                colegio = get_object_or_404(Colegio, usuario=user)
+                return redirect('dashboard_colegio', id_colegio=colegio.id_colegio)
+            else:
+                messages.error(request, 'Nombre de institución/código DANE o contraseña incorrectos.', extra_tags='alert alert-danger alert-dismissible fade show')
+    else:
+        form = LoginForm()
+    return render(request, 'gestion/login_colegio.html', {'form': form})
+
+
+def custom_logout(request):
+    from django.contrib.auth import logout
+    logout(request)
+    return redirect('login_colegio')
 
 
 # Vista para subir archivos
+@login_required
 @transaction.atomic
 def subir_archivo(request, id_colegio):
     colegio = get_object_or_404(Colegio, pk=id_colegio)
+
+    # Verificación de seguridad: el usuario solo puede acceder a su propio colegio
+    if colegio.usuario != request.user:
+        messages.error(request, "No tienes permiso para acceder a esta página.")
+        # Redirigir al dashboard del colegio que sí le corresponde
+        return redirect('dashboard_colegio', id_colegio=request.user.colegio_asociado.id_colegio)
+
     if request.method == "POST":
         form = SubirArchivoForm(request.POST, request.FILES)
         if form.is_valid():
@@ -74,8 +136,16 @@ def subir_archivo(request, id_colegio):
     return render(request, "gestion/subir_archivo.html", {"form": form, "colegio": colegio})
 
 
+@login_required
 def dashboard_colegio(request, id_colegio):
     colegio = get_object_or_404(Colegio, pk=id_colegio)
+
+    # Verificación de seguridad: el usuario solo puede acceder a su propio dashboard
+    if colegio.usuario != request.user:
+        messages.error(request, "No tienes permiso para acceder a esta página.")
+        # Redirigir al dashboard del colegio que sí le corresponde
+        return redirect('dashboard_colegio', id_colegio=request.user.colegio_asociado.id_colegio)
+
     estudiantes = Estudiante.objects.filter(colegio=colegio)
 
     # --- Inicia el Pipeline de Datos ---

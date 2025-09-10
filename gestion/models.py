@@ -1,3 +1,4 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
@@ -11,6 +12,13 @@ class Colegio(models.Model):
     ubicacion = models.CharField(max_length=255)
     num_estudiantes = models.IntegerField(default=0)
     num_docentes = models.IntegerField(default=0)
+    usuario = models.OneToOneField(
+        'Usuario',
+        on_delete=models.CASCADE,
+        related_name='colegio_asociado',
+        null=True,  # Permitir nulos temporalmente durante la migración
+        blank=True
+    )
 
     class Meta:
         verbose_name = "Colegio"
@@ -18,6 +26,29 @@ class Colegio(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+
+class Usuario(AbstractUser):
+    """Modelo de usuario personalizado para la autenticación."""
+    # Usaremos el email como principal forma de identificación, en lugar del username.
+    email = models.EmailField('correo electrónico', unique=True)
+    # Hacemos que el campo username, heredado de AbstractUser, sea opcional.
+    username = models.CharField(
+        'nombre de usuario',
+        max_length=150,
+        unique=True,
+        blank=True,  # Permitimos que el campo esté en blanco
+        null=True    # Y que sea nulo en la base de datos
+    )
+
+    # Definimos el email como el campo para el login
+    USERNAME_FIELD = 'email'
+    # Campos requeridos al crear un superusuario por consola (además de email y password)
+    REQUIRED_FIELDS = []
+
+    def __str__(self):
+        return self.email
 
 
 class Estudiante(models.Model):
