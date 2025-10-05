@@ -42,14 +42,10 @@ En la sección "Environment" de Render, agrega las siguientes variables:
 
 | Key | Value | Descripción |
 |-----|-------|-------------|
-| `SECRET_KEY` | `tu-clave-secreta-aquí` | Genera una nueva clave secreta para producción |
+| `SECRET_KEY` | `django-insecure-fr*4dg*b0b+yshs4)d5q&1xfb*y^-b=il1_v$ikgv+tp96843k` | Clave secreta (puedes usar esta o generar una nueva) |
 | `DEBUG` | `False` | Desactivar modo debug en producción |
-| `ALLOWED_HOSTS` | `tu-app.onrender.com` | Reemplaza con tu dominio de Render |
-| `DB_NAME` | *(de tu BD PostgreSQL)* | Nombre de la base de datos |
-| `DB_USER` | *(de tu BD PostgreSQL)* | Usuario de la base de datos |
-| `DB_PASSWORD` | *(de tu BD PostgreSQL)* | Contraseña de la base de datos |
-| `DB_HOST` | *(de tu BD PostgreSQL)* | Host de la base de datos |
-| `DB_PORT` | `5432` | Puerto de PostgreSQL (por defecto 5432) |
+| `ALLOWED_HOSTS` | `proyecto-integrado-i-desarrollo-de.onrender.com` | **SIN** https:// |
+| `DATABASE_URL` | `postgresql://desercion_db_bfxp_user:ijyZKBb0kjF6Ndq7AAcnAh4gnfmRvDBY@dpg-d3hagmogjchc73abv6n0-a/desercion_db_bfxp` | Base de datos PostgreSQL de Render (Internal URL) |
 
 ### Generar SECRET_KEY
 
